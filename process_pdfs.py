@@ -16,8 +16,9 @@ def find_pdf_links(filename):
 	return pdf_links
 
 def filter_links(links):
-	to_filter = ['www.aanda.org', 'www.edpsciences.org', 'dexter.edpsciences.org', 'dx.doi.org']
-	return [l for l in links if not any([l.find(u) > -1 for u in to_filter])]
+	to_filter = ['http://www.aanda.org', 'http://www.edpsciences.org', 'http://dexter.edpsciences.org', 'http://dx.doi.org']
+	to_filter = zip(to_filter, [len(u) for u in to_filter])
+	return [l for l in links if not any([l[0:v] == u for u, v in to_filter])]
 
 def process_papers(filenames):
 	conn, sql = init_db()
