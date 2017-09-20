@@ -16,9 +16,13 @@ def find_pdf_links(filename):
 	return pdf_links
 
 def filter_links(links):
-	to_filter = ['http://www.aanda.org', 'http://www.edpsciences.org', 'http://dexter.edpsciences.org', 'http://dx.doi.org']
+	to_filter = ["http://www.aanda.org", "http://www.edpsciences.org",\
+				 "http://dexter.edpsciences.org", "http://dx.doi.org",\
+				 "http://linker.aanda.org", "http://arxiv.org",\
+				 "http://adsabs.harvard.edu", "http://ui.adsabs.harvard.edu",\
+				 "doi:", "DOI:", "mailto:", 'email:', "http://ascl.net", "ascl.net"]
 	to_filter = zip(to_filter, [len(u) for u in to_filter])
-	return [l for l in links if not any([l[0:v] == u for u, v in to_filter])]
+	return [l for l in links if (not any([l[0:v] == u for u, v in to_filter])) and (l.find('@') == -1)] 
 
 def process_papers(filenames):
 	conn, sql = init_db()
@@ -35,7 +39,8 @@ def process_papers(filenames):
 			continue
 		for link in links:
 			print("\tAdding link {0}".format(link))
-		links_and_filenames = zip(links, [filename] * len(links))
+		sql_filename = filename.split('/')[-1].split('.')[0]
+		links_and_filenames = zip(links, [sql_filename] * len(links))
 		sql.executemany("INSERT INTO links(url, filename) VALUES(?, ?)", links_and_filenames)
 		processed_files += 1
 		added_links += len(links)
