@@ -22,7 +22,22 @@ def filter_links(links):
 				 "http://adsabs.harvard.edu", "http://ui.adsabs.harvard.edu",\
 				 "doi:", "DOI:", "mailto:", 'email:', "http://ascl.net", "ascl.net"]
 	to_filter = zip(to_filter, [len(u) for u in to_filter])
-	return [l for l in links if (not any([l[0:v] == u for u, v in to_filter])) and (l.find('@') == -1)] 
+	return [l for l in links if (not any([l[0:v] == u for u, v in to_filter])) and (l.find('@') == -1)]
+
+def add_link(link, filename, paper_id, conn, sql):
+	sql.execute("SELECT url FROM links WHERE url = ?", (link,))
+	foo = sql.fetchone()
+	if not foo:
+		sql.execute("INSERT INTO links(url) VALUES (?)", (link,))
+		conn.commit()
+		link_id = sql.lastrowid
+	else:
+		sql.execute("SELECT id FROM links WHERE url = ?", (link,))
+		link_id = sql.fetchone()[0]
+	sql.execute("INSERT INTO links_papers(link_id, paper_id) VALUES (?, ?)", (link_id, paper_id))
+
+def unpathify(filename):
+	return filename.split('/')[-1].split('.')[0]
 
 def process_papers(filenames):
 	conn, sql = init_db()
@@ -31,17 +46,22 @@ def process_papers(filenames):
 	errored_files = []
 	for filename in filenames:
 		print("Reading file {0}".format(filename))
-		try: 
+		try:
 			links = filter_links(find_pdf_links(filename))
 		except pyPdf.utils.PdfReadError:
 			print("Couldn't read file")
 			errored_files.append(filename)
 			continue
+		filename_without_path = unpathify(filename)
+		sql.execute("SELECT filename FROM papers WHERE papers.filename = ?", (filename_without_path,))
+		if sql.fetchone():
+			continue
+		sql.execute("INSERT INTO papers(filename) VALUES (?)", (filename_without_path,))
+		conn.commit()
+		paper_id = sql.lastrowid
 		for link in links:
 			print("\tAdding link {0}".format(link))
-		sql_filename = filename.split('/')[-1].split('.')[0]
-		links_and_filenames = zip(links, [sql_filename] * len(links))
-		sql.executemany("INSERT INTO links(url, filename) VALUES(?, ?)", links_and_filenames)
+			add_link(link, filename, paper_id, conn, sql)
 		processed_files += 1
 		added_links += len(links)
 	conn.commit()
