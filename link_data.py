@@ -68,21 +68,29 @@ if __name__ == "__main__":
 	num_con = num_con_links(sql)
 	num_con_w = len(con_links(sql, 200))
 	num_con_nw = num_con_nw_links(sql)
-	print "Of the checked links, {0} ({1}%) were consistent: they returned the same HTTP status at every check. {2} ({3}%) of these worked (returned 200 OK)."\
-		.format(num_con, c(num_con, num_checked), num_con_w, c(num_con_w, num_checked))
+	print
+	print "{0} checked links were consistent: they returned the same HTTP status code on every check.".format(num_con)
+	print "\t{0} consistently worked.".format(num_con_w)
+	print "\t{0} consistently didn't.".format(num_con_nw)
+	if args.detailed:
+		# print out every consistently broken link
+		pass
 	num_incon = num_incon_links(sql)
 	num_incon_w = num_incon_w(sql)
 	num_incon_nw = num_incon_nw(sql)
-	print "There were {0} inconsistent links. Of these, {1} ({2}%) worked sometimes, and {3} ({4}%) never worked, but for different reasons across checks."\
-		.format(num_incon, num_incon_w, c(num_incon_w, num_checked), num_incon_nw, c(num_incon_nw, num_checked))
+	print
+	print "{0} checked links were inconsistent.".format(num_incon)
+	print "\t{0} sometimes worked and sometimes didn't.".format(num_incon_w)
+	print "\t{0} never worked, but varied as to why they didn't.".format(num_incon_nw)
 	if args.sanity_check:
 		num_working = sql.execute("SELECT COUNT(DISTINCT link) FROM checks WHERE code = 200").fetchone()[0]
 		num_not_working = sql.execute("SELECT COUNT(DISTINCT link) FROM checks WHERE code <> 200").fetchone()[0]
 		print
-		print "{0} {1} Links should either be checked or unchecked.".format(total_links, num_checked + num_unchecked)
-		print "{0} {1} Checked links should either be consistent or be inconsistent.".format(num_checked, num_con + num_incon)
-		print "{0} {1} Consistent links should either always work or never work.".format(num_con, num_con_w + num_con_nw)
-		print "{0} {1} Inconsistent links should either work sometimes or never work.".format(num_incon, num_incon_w + num_incon_nw)
-		print "{0} {1} Links that returned a 200 OK should be either consistent or inconsistent.".format(num_working, num_con_w + num_incon_w)
-		print "{0} {1} Links that returned something other than a 200 OK should be either consistently not working or inconsistent.".format(num_not_working, \
+		print "{0:>4} {1:>4} Links should either be checked or unchecked.".format(total_links, num_checked + num_unchecked)
+		print "{0:>4} {1:>4} Checked links should either be consistent or be inconsistent.".format(num_checked, num_con + num_incon)
+		print "{0:>4} {1:>4} Consistent links should either always work or never work.".format(num_con, num_con_w + num_con_nw)
+		print "{0:>4} {1:>4} Inconsistent links should either work sometimes or never work.".format(num_incon, num_incon_w + num_incon_nw)
+		print "{0:>4} {1:>4} Links that returned a 200 OK should be either consistent or inconsistent.".format(num_working, num_con_w + num_incon_w)
+		print "{0:>4} {1:>4} Links that returned something other than a 200 OK should be either consistently not working or inconsistent.".format(num_not_working, \
 			num_con_nw + num_incon_w + num_incon_nw)
+		print "{0:>4} {1:>4} All the smallest buckets should add up to the total.".format(total_links, num_con_w + num_con_nw + num_incon_w + num_incon_nw + num_unchecked, total_links)
