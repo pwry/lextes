@@ -53,6 +53,15 @@ def num_incon_nw(sql): # unreasonably slow
 def c(a, b):
 	return round(a / b * 100, 2)
 
+def print_links(links):
+	max_url_len = max(len(x[1]) for x in links)
+	for l in links:
+		link_id, url, code, message = l
+		print "{0:<4}".format(link_id),
+		print "{0:<3}".format(code),
+		print "{{0:<{0}}}".format(max_url_len).format(url),
+		print "\t{0}".format(message)
+
 if __name__ == "__main__":
 	import argparse
 	parser = argparse.ArgumentParser("Process data from links.sqlite.")
@@ -71,10 +80,12 @@ if __name__ == "__main__":
 	print
 	print "{0} checked links were consistent: they returned the same HTTP status code on every check.".format(num_con)
 	print "\t{0} consistently worked.".format(num_con_w)
-	print "\t{0} consistently didn't.".format(num_con_nw)
+	print "\t{0} consistently didn't.".format(num_con_nw),
 	if args.detailed:
-		# print out every consistently broken link
-		pass
+		print "Here they are:"
+		print_links(con_nw_links(sql))
+	else:
+		print
 	num_incon = num_incon_links(sql)
 	num_incon_w = num_incon_w(sql)
 	num_incon_nw = num_incon_nw(sql)
@@ -82,6 +93,31 @@ if __name__ == "__main__":
 	print "{0} checked links were inconsistent.".format(num_incon)
 	print "\t{0} sometimes worked and sometimes didn't.".format(num_incon_w)
 	print "\t{0} never worked, but varied as to why they didn't.".format(num_incon_nw)
+	if args.detailed:
+		print "Here are the inconsistent links:"
+		print_links(incon_links(sql))
+	print
+	print "Here are the reasons consistent links failed:"
+	err_msgs = {-5: "ValueError", -4: "httplib.BadStatusLine", -3: "socket.error", -2: "ssl.CertificateError", -1: "urllib2.URLError (lookup failed)", 200: "OK",\
+			301: "Moved permanently (redirect)", 302: "Found", 401: "Unauthorized", 403: "Forbidden", 404: "Not found", 500: "Internal server error",\
+			501: "Not implemented", 502: "Bad gateway", 503: "Service unavailable", 504: "Gateway timeout"}
+	err_codes = sql.execute("SELECT DISTINCT code FROM checks ORDER BY code").fetchall()
+	if args.sanity_check:
+		running_total = 0
+	for code_tuple in err_codes:
+		code = code_tuple[0]
+		if code == 200:
+			continue
+		links = con_links(sql, code)
+		if args.detailed:
+			print "\t{0}:".format(code)
+			for l in links:
+				print "\t\t{0:<4} {1}".format(*l)
+		else:
+			print "\t{0} {1}: {2}".format(code, err_msgs[code], len(links))
+		if args.sanity_check:
+			running_total += len(links)
+
 	if args.sanity_check:
 		num_working = sql.execute("SELECT COUNT(DISTINCT link) FROM checks WHERE code = 200").fetchone()[0]
 		num_not_working = sql.execute("SELECT COUNT(DISTINCT link) FROM checks WHERE code <> 200").fetchone()[0]
@@ -94,3 +130,4 @@ if __name__ == "__main__":
 		print "{0:>4} {1:>4} Links that returned something other than a 200 OK should be either consistently not working or inconsistent.".format(num_not_working, \
 			num_con_nw + num_incon_w + num_incon_nw)
 		print "{0:>4} {1:>4} All the smallest buckets should add up to the total.".format(total_links, num_con_w + num_con_nw + num_incon_w + num_incon_nw + num_unchecked, total_links)
+		print "{0:>4} {1:>4} As many consistent codes should error in total as error for any specific reason".format(num_con_nw, running_total)
